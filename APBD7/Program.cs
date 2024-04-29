@@ -1,3 +1,5 @@
+using APBD7.DTOs;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -7,6 +9,7 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+//post!!!
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -15,5 +18,10 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.MapPost("add", (RequestDTO request, IConfiguration configuration) =>
+{
+    
+
+});
 
 app.Run();
