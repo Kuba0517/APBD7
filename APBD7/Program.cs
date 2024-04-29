@@ -1,4 +1,5 @@
 using APBD7.DTOs;
+using APBD7.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -7,9 +8,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddScoped<IDbService, DbService>();
+
 var app = builder.Build();
 
-//post!!!
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -17,6 +19,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.MapGet("products/{id:int}", (int id, IConfiguration configuration, IDbService service) => service.GetProductById(id));
+    
 
 app.MapPost("add", (RequestDTO request, IConfiguration configuration) =>
 {
