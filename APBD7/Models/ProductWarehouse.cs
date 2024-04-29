@@ -6,6 +6,9 @@ public class ProductWarehouse
     public int Amount { get; set; }
     public double Price { get; set; }
     public DateTime CreatedAt { get; set; }
+    public int IdWarehouse { get; set; }
+    public int IdProduct { get; set; }
+    public int IdOrder { get; set; }
 
     public List<Warehouse> Warehouses { get; set; } = [];
     public List<Product> Products { get; set; } = [];

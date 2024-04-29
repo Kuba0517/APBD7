@@ -1,5 +1,6 @@
 ﻿using System.Data;
 using System.Data.SqlClient;
+using APBD7.DTOs;
 using APBD7.Models;
 using Dapper;
 
@@ -33,28 +34,125 @@ public class DbService(IConfiguration configuration) : IDbService
         return products.FirstOrDefault();
     }
 
-    public Task<Warehouse?> GetWarehouseById(int id)
+    public async Task<Warehouse?> GetWarehouseById(int id)
     {
-        throw new NotImplementedException();
+        await using var connection = await GetConnection();
+
+        var warehouses = await connection.QueryAsync<Warehouse>(
+            "SELECT * FROM WAREHOUSE WHERE IdWarehouse = @Id",
+            new { Id = id }
+        );
+
+        return warehouses.FirstOrDefault();
+
     }
 
-    public Task<Order?> GetOrderByIdAndAmount(int id, int amount)
+    public async Task<Order?> GetOrderByIdAndAmount(int id, int amount)
     {
-        throw new NotImplementedException();
+        await using var connection = await GetConnection();
+
+        var orders = await connection.QueryAsync<Order>(
+            "SELECT * FROM [ORDER] WHERE IdOrder = @Id AND Amount = @Amount",
+            new
+            {
+                Id = id,
+                Amount = amount
+            }
+        );
+
+        return orders.FirstOrDefault();
+
     }
 
-    public Task<ProductWarehouse?> GetProductWarehouseByOrder(Order order)
+    public async Task<ProductWarehouse?> GetProductWarehouseByOrder(int orderId)
     {
-        throw new NotImplementedException();
+        await using var connection = await GetConnection();
+
+        var productWarehouses = await connection.QueryAsync<ProductWarehouse>(
+            "SELECT * FROM PRODUCT_WAREHOUSE WHERE IdOrder = @Id",
+            new
+            {
+                Id = orderId,
+            }
+        );
+
+        return productWarehouses.FirstOrDefault();
+
     }
 
-    public Task<Order> UpdateOrderFulfilledAt(Order order)
+    public async Task UpdateOrderFulfilledAt(int id)
     {
-        throw new NotImplementedException();
+        await using var connection = await GetConnection();
+        await using var transaction = await connection.BeginTransactionAsync();
+
+        try
+        {
+
+            await connection.ExecuteAsync(
+                @"UPDATE [ORDER] SET FulfilledAt = @Date WHERE IdOrder = @Id",
+                new
+                {
+                    Date = DateTime.Now,
+                    Id = id
+                },
+                transaction: transaction
+
+            );
+
+            await transaction.CommitAsync();
+        }
+        catch (Exception)
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
-    public Task<ProductWarehouse> AddProductWarehouse(ProductWarehouse productWarehouse)
+    public async Task<int> AddProductWarehouse(ProductWarehouseDTO productWarehouse)
     {
-        throw new NotImplementedException();
+        await using var connection = await GetConnection();
+        await using var transaction = await connection.BeginTransactionAsync();
+        
+        try
+        {
+            var productWarehouseId = await connection.ExecuteScalarAsync<int>(
+                @"INSERT INTO PRODUCT_WAREHOUSE VALUES (@IdWarehouse, @IdProduct, @IdOrder, 
+                                      @Amount, @Price, @CreatedAt);
+                        SELECT cast(scope_identity() as int)",
+                new
+                {
+                    IdWarehouse = productWarehouse.IdWarehouse,
+                    IdProduct = productWarehouse.IdProduct,
+                    IdOrder = productWarehouse.IdOrder,
+                    Amount = productWarehouse.Amount,
+                    Price = (await GetProductById(productWarehouse.IdProduct)).Price * productWarehouse.Amount,
+                    CreatedAt = DateTime.Now
+                },
+                transaction: transaction
+
+            );
+
+            await transaction.CommitAsync();
+
+            return productWarehouseId;
+        }
+        catch (Exception)
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+       
+    }
+
+    public async Task<IEnumerable<ProductWarehouse>> GetProductWarehouses()
+    {
+        await using var connection = await GetConnection();
+
+        var productWarehouses = await connection.QueryAsync<ProductWarehouse>(
+            "SELECT * FROM PRODUCT_WAREHOUSE"
+        );
+
+        return productWarehouses;
+        
     }
 }
