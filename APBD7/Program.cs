@@ -1,6 +1,7 @@
 using APBD7.DTOs;
 using APBD7.Services;
-using Microsoft.AspNetCore.Http.HttpResults;
+using APBD7.Validators;
+using FluentValidation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,6 +12,7 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddScoped<IDbService, DbService>();
 
+builder.Services.AddValidatorsFromAssemblyContaining<RequestDTOValidators>();
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -21,8 +23,11 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.MapPost("add", async (RequestDTO request, IConfiguration configuration, IDbService service) =>
+app.MapPost("add-product", async (RequestDTO request, IConfiguration configuration, IDbService service, 
+    IValidator<RequestDTO> validator) =>
 {
+    var validate = await validator.ValidateAsync(request);
+    if (!validate.IsValid) return Results.ValidationProblem(validate.ToDictionary());
     var product = await service.GetProductById(request.IdProduct);
     if (product == null) return Results.NotFound();
 
