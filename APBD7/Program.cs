@@ -23,34 +23,47 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.MapPost("add-product", async (RequestDTO request, IConfiguration configuration, IDbService service, 
-    IValidator<RequestDTO> validator) =>
+app.MapPost("add-product", async (RequestDTO request, IConfiguration configuration, IDbService service, IValidator<RequestDTO> validator) =>
 {
-    var validate = await validator.ValidateAsync(request);
-    if (!validate.IsValid) return Results.ValidationProblem(validate.ToDictionary());
+    var validationResult = await validator.ValidateAsync(request);
+    if (!validationResult.IsValid) 
+    {
+        return Results.ValidationProblem(validationResult.ToDictionary());
+    }
+
     var product = await service.GetProductById(request.IdProduct);
-    if (product == null) return Results.NotFound();
+    if (product == null) 
+    {
+        return Results.NotFound("Product not found.");
+    }
 
     var warehouse = await service.GetWarehouseById(request.IdWarehouse);
-    if (warehouse == null) return Results.NotFound();
+    if (warehouse == null) 
+    {
+        return Results.NotFound("Warehouse not found.");
+    }
     
     var order = await service.GetOrderByIdAndAmount(request.IdProduct, request.Amount);
-    if (order == null) return Results.NotFound();
+    if (order == null || request.CreatedAt < order.CreatedAt) 
+    {
+        return Results.NotFound("Order not found or request date is earlier than order date.");
+    }
     
-    if (request.CreatedAt < order.CreatedAt) return Results.NotFound();
-    
-    if (await service.GetProductWarehouseByOrder(order.IdOrder) != null) return Results.BadRequest();
-    
+    if (await service.GetProductWarehouseByOrder(order.IdOrder) != null) 
+    {
+        return Results.BadRequest("Product already exists in the warehouse for this order.");
+    }
+
     await service.UpdateOrderFulfilledAt(order.IdOrder);
 
-    var result = await service.AddProductWarehouse(
+    var productWarehouseId = await service.AddProductWarehouse(
         new ProductWarehouseDTO(warehouse.IdWarehouse, product.IdProduct, order.IdOrder, request.Amount)
     );
 
-    Console.WriteLine(result);
+    Console.WriteLine($"Product warehouse created with ID: {productWarehouseId}");
 
-    return Results.Created($"created product warehouse with id: {result}", result);
-
+    return Results.Created($"Product warehouse created with ID: {productWarehouseId}", productWarehouseId);
 });
+
 
 app.Run();
